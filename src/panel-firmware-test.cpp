@@ -55,6 +55,8 @@
 //  06/19/2026 - pushed to github 2026-june branch
 //  06/22/2026 - add virtual json_send() member function
 //  07/08/2026 - start adding button code
+//  07/21/2026 - revise button code "Button:", "Start"
+//  07/25/2026 - change SI to single message vs two
 //
 /****** for H316 front panel board 3/2024. ******/
 //  sixteen register bit top row
@@ -250,6 +252,21 @@ public:
   virtual void R_bit_on() { /* Serial.println("D_button::R_bit_on"); */ };
   virtual void R_bit_off() { /* Serial.println("D_button::R_bit_off"); */ };
 
+virtual void json_send() override
+  {
+    // create JSON message to send to h316 frontpanelh316
+
+    // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    count++;
+    Serial.println("D_button virtual function");
+    // sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
+    
+   sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name,button_value,value); 
+
+    Serial.print(jsonbuf);
+    Serial.print("\n");
+  }
+
   //
   /** @brief - BN_changed_bit exists in both D_button, R_select,  and D_base. Beware.  */
   int BN_changed_bit(int j)
@@ -365,17 +382,6 @@ public:
     count = 0;
   }
 
-virtual void json_send() override
-  {
-    // create JSON message to send to h316 frontpanelh316
-
-    // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
-    count++;
-    Serial.println("D_demo virtual function");
-    sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
-    Serial.print(jsonbuf);
-    Serial.print("\n");
-  }
 
   int R_bit(int in)
   {
@@ -384,39 +390,33 @@ virtual void json_send() override
     // Serial.print("DEMO MODE"); // printable name
     // Serial.print(" ");
     // Serial.println(name); // printable name
-    json_send();
+   //  json_send();  // send on push and release both
     return (0);
+  }
+
+    void R_bit_on()
+  {
+    Serial.println("D_demo::R_bit_on");
+    json_send(); // changed 7/25/2026 
   }
 };
 
-class D_spare : public D_button
+class D_toggle : public D_button
 { // spare front panel button
 public:
-  D_spare(D_bit *xparent, char *namex)
+  D_toggle(D_bit *xparent, char *namex)
   {
     parent = xparent;
-    Serial.println("D_spare constructor");
+    Serial.println("D_toggle constructor");
     name = namex;
     button_value = 0; // clear/set off
   }
 
-virtual void json_send() override
-  {
-    // create JSON message to send to h316 frontpanelh316
-
-    // sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
-    count++;
-    Serial.println("D_spare virtual function");
-    sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
-    Serial.print(jsonbuf);
-    Serial.print("\n");
-  }
-
   int R_bit(int in)
   {
-    Serial.print("D_spare::R_bit ");
+    Serial.print("D_toggle::R_bit ");
     // button_value++;            // set light on
-    Serial.print("DEMO MODE"); // printable name
+    Serial.print("TOGGLE MODE"); // printable name
     Serial.print(" ");
     Serial.print(name); // printable name
     Serial.print(" ");
@@ -427,7 +427,7 @@ virtual void json_send() override
   }
   void R_bit_on()
   {
-    Serial.println("D_spare::R_bit_on");
+    Serial.println("D_toggle::R_bit_on");
     //step_cmd(); // change demo mode
     json_send(); // changed 7/9/2026 
   }
@@ -1244,7 +1244,7 @@ void setup()
   dbit_save = dbyte_save->mbit(dbyte_save, 0x04);
   fp_clear = dbit_save->D_reg_link = new D_demo(dbit_save, (char *)"RUN");  // set RUN mode
   dbit_save = dbyte_save->mbit(dbyte_save, 0x08);
-  fp_clear = dbit_save->D_reg_link = new D_spare(dbit_save, (char *)"Start"); // do MA or SI or RUN
+  fp_clear = dbit_save->D_reg_link = new D_toggle(dbit_save, (char *)"Start"); // do MA or SI or RUN
   //      (on SDA, SCL = ,5)
 
   fp_dreg->D_reg_end_bits(); // update bit number after last bit added
