@@ -299,9 +299,12 @@ public:
 private:
 };
 //
-/** @brief class D_reg provides a single object for a front panel register
+/** @brief class D_reg provides a single object for the front panel register.
  *  This is the single 16-bit register displayed on the top row of LEDs.
- *  (It can also be used to test the bottom 16 LEDs.)
+ * There is only one instance of D_reg. 
+ * See also the multiple instances of the R_select object that each
+ * contain the name and value of one CPU register (A, B, X, ...)
+ *  
  */
 
 class D_reg : D_base
@@ -314,7 +317,7 @@ public:
   /** size - number of bits in front panel reg (16) */
   int size;
   /** register current contents */
-  long value;     // current register value
+ //  long value;     // current register value
   long old_value; // detect changes
   /** flag if value has changed and needs output. set when a bit is changed via D_bit::R_bit */
   int change_flag; // set if output is needed
@@ -352,6 +355,7 @@ public:
     Serial.print(name); // printable name
     Serial.print(" ");
     clear_register(); // clear the display register
+   // R_select::selected_reg->value = 0;  // clear the actual A, B, X ... register 
     return (0);
   }
 };
@@ -398,99 +402,11 @@ public:
     json_send();
   }
 };
-
-/** @brief D_toggle class was intended to provide an object for front
- * panel buttons of all kinds that toggle between "on" and "off".
- * A json message is generated only when it transitions to "on"?? 
- * @param parent - pointer to the i/o expander byte
- * namex - name of button used in json messages.
- *
- */
-class D_toggle : public D_button
-{ // spare front panel button
-public:
-  D_toggle(D_bit *xparent, char *namex)
-  {
-    parent = xparent;
-    Serial.println("D_toggle constructor");
-    name = namex;
-    button_value = 0; // clear/set off
-  }
-
-  int R_bit(int in)
-  {
-    Serial.print("D_toggle::R_bit ");
-    // button_value++;            // set light on
-    Serial.print("TOGGLE MODE"); // printable name
-    Serial.print(" ");
-    Serial.print(name); // printable name
-    Serial.print(" ");
-    // if ((button_value & 2) == 0)
-    //   step_cmd(); // change demo mode
-   // json_send();
-    return (0);
-  }
-  void R_bit_on()
-  {
-    Serial.println("D_toggle::R_bit_on");
-    //step_cmd(); // change demo mode
-   // R_select::send_registers_json();
-
-    json_send(); // changed 7/9/2026 
-  }
-  void R_bit_off()
-  {
-    Serial.println("D_toggle::R_bit_off");
-    //send_registers_json();
-    json_send();
-  }
-
-virtual void json_send() override
-  {
-    int i;
-    int ii;
-    char tempbuf[256];
-    // create JSON message to send to h316 frontpanelh316
-
-    //    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
-    count++;
-    Serial.println("D_toggle virtual function");
-    sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
-
-    for (i = 0; i < 4; i++) // was reg_max
-    {
-      if (1) // (R_select::reg_select[i].change_flag != 0)
-      {
-          /*
-        ii = fp_rsel_A->R_change_flag;
-              sprintf(tempbuf,"D_toggle::json_send: name, value, change_flag: %s %ld %d\n",
-              // R_select::reg_select[i].name,
-              // R_select::reg_select[i].value,
-              // R_select::reg_select[i].change_flag);
-              fp_rsel_A->name,
-              fp_rsel_A->value,
-              fp_rsel_A->R_change_flag);
-              Serial.println(tempbuf);
-              */
-      }
-     // R_select::reg_select[i].change_flag = 0;
-      
-    };
-
-    /* check all front panel register selection objects for updates */
-
-  //   sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, button_value, value); 
-
-  //   Serial.print(jsonbuf);
-  //   Serial.print("\n");
-  // }
-
-
-};
-};
-//
-/** @brief class R_select defines one register select button.
+// xx
+/** @brief each instances of class R_select defines one register select button.
  * (A, B, X, P ...)
+ * Each instance contains the name and current value of a register. 
+ * 
  * In includes methods to act on one button or the group.
  */
 class R_select : public D_button
@@ -593,6 +509,93 @@ public:
 
 private: // name of this register
 };
+
+// yy
+
+/** @brief D_toggle class was intended to provide an object for front
+ * panel buttons of all kinds that toggle between "on" and "off".
+ * A json message is generated only when it transitions to "on"?? 
+ * @param parent - pointer to the i/o expander byte
+ * namex - name of button used in json messages.
+ *
+ */
+class D_toggle : public D_button
+{ // spare front panel button
+public:
+  D_toggle(D_bit *xparent, char *namex)
+  {
+    parent = xparent;
+    Serial.println("D_toggle constructor");
+    name = namex;
+    button_value = 0; // clear/set off
+  }
+
+  int R_bit(int in)
+  {
+    Serial.print("D_toggle::R_bit ");
+    // button_value++;            // set light on
+    Serial.print("TOGGLE MODE"); // printable name
+    Serial.print(" ");
+    Serial.print(name); // printable name
+    Serial.print(" ");
+    // if ((button_value & 2) == 0)
+    //   step_cmd(); // change demo mode
+   // json_send();
+    return (0);
+  }
+  void R_bit_on()
+  {
+    Serial.println("D_toggle::R_bit_on");
+    //step_cmd(); // change demo mode
+   // R_select::send_registers_json();
+
+    json_send(); // changed 7/9/2026 
+  }
+  void R_bit_off()
+  {
+    Serial.println("D_toggle::R_bit_off");
+    //send_registers_json();
+    json_send();
+  }
+
+  virtual void json_send() override
+  {
+    int i;
+    int ii;
+    char tempbuf[256];
+    // create JSON message to send to h316 frontpanelh316
+
+    //    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    count++;
+    Serial.println("D_toggle virtual function");
+    sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
+
+    for (i = 0; i < fp_rsel_A->reg_max; i++) // was reg_max
+    {
+      if (1) // (R_select::reg_select[i].change_flag != 0)
+      {
+
+        ii = fp_rsel_A->R_change_flag;
+        sprintf(tempbuf, "D_toggle::json_send: name, value, change_flag: %s %ld %d\n",
+                // R_select::reg_select[i].name,
+                // R_select::reg_select[i].value,
+                // R_select::reg_select[i].change_flag);
+                fp_rsel_A->name,
+                fp_rsel_A->R_value(),
+                fp_rsel_A->R_changes(),
+                Serial.println(tempbuf));
+      }
+      fp_rsel_A->reg_select[i]->R_change_flag = 0;
+    };
+
+    /* check all front panel register selection objects for updates */
+
+    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, button_value, value);
+
+    Serial.print("\n");
+  };
+};
+//
 
 //  outside of objects -- initialize static variables in R_select
 
@@ -1087,7 +1090,7 @@ void process_json()
   temp = status_reg(inputx, (char *)"A");
   if (temp >= 0)
   {
-    fp_dreg->value = temp;
+    //fp_dreg->value = temp;
     fp_rsel_A->value = temp; //
     fp_dreg->D_reg_write_word(temp);
   };
@@ -1390,7 +1393,7 @@ void display_register(unsigned long delay_time)
   digitalWrite(LED_BUILTIN, HIGH); // turn the LED on (HIGH is the voltage level)
   // dbyte_save->W_byte(0xf);
   // dbit_save->W_bit(1);
-  fp_dreg->D_reg_write_word(fp_dreg->value);
+  fp_dreg->D_reg_write_word(R_select::selected_reg->value); // was fp_dreg
 
   D_io_base->W_wordf(); // write and read all bytes
 
@@ -1416,7 +1419,7 @@ void display_register(unsigned long delay_time)
 void save_register()
 { // pass register value to simh simulator
   Serial.print("save_register: simh command to update register ");
-  Serial.println(fp_dreg->value, OCT);
+ // Serial.println(fp_dreg->value, OCT);
 }
 
 void clear_register()
