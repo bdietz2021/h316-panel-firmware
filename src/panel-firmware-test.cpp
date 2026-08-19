@@ -566,35 +566,61 @@ public:
     // create JSON message to send to h316 frontpanelh316
 
     //    sprintf(jsonbuf, "<{\"A\":%d,\"B\":%d,\"M-reg\":%d,\"P/Y\":%d}>", A, B, X, P);
+    //      Serial.print("\n");
     count++;
     Serial.println("D_toggle virtual function");
     sprintf(jsonbuf, "<{\"%s\":%d}>", name, button_value);
 
-    for (i = 0; i < fp_rsel_A->reg_max; i++) // was reg_max
+    // initalize to create json message to frontpanelh316 running on the "big" Raspberry Pi 3
+
+    cJSON *ptr;        // work pointer
+    cJSON *ptr2;       // work pointer
+    cJSON *ptr3;       // work pointer
+    cJSON *new_object; //
+    cJSON *array;
+    int wint = 13; // dummy register value
+    int wint1 = 14;
+    int wint2 = 15;
+
+    cJSON *json = cJSON_CreateObject();                // empty top-level object
+    array = cJSON_AddArrayToObject(json, "Registers"); // add array of register values
+    // add a field for each register
+
+    for (i = 0; i < fp_rsel_A->reg_max; i++)
     {
-      if (1) // (R_select::reg_select[i].change_flag != 0)
+      if (1) // fp_rsel_A->reg_select[i]->R_change_flag != 0)
       {
 
         ii = fp_rsel_A->R_change_flag;
-        sprintf(tempbuf, "D_toggle::json_send: name, value, change_flag: %s %ld %d\n",
-                // R_select::reg_select[i].name,
-                // R_select::reg_select[i].value,
-                // R_select::reg_select[i].change_flag);
-                fp_rsel_A->name,
-                fp_rsel_A->R_value(),
-                fp_rsel_A->R_changes(),
-                Serial.println(tempbuf));
+        // sprintf(tempbuf, "D_toggle::json_send: name, value, change_flag: %s %ld %d\n",
+        //         fp_rsel_A->reg_select[i]->name,
+        //         fp_rsel_A->reg_select[i]->value,
+        //         fp_rsel_A->reg_select[i]->R_change_flag);
+        // Serial.println(tempbuf);
+
+        new_object = cJSON_CreateObject(); // object to be added to array
+        ptr2 = cJSON_AddNumberToObject(new_object, fp_rsel_A->reg_select[i]->name, fp_rsel_A->reg_select[i]->value);
+        cJSON_AddItemToArray(array, new_object);
       }
       fp_rsel_A->reg_select[i]->R_change_flag = 0;
     };
+    // finish the json message, send it, and free memory
+    Serial.print("<");
+    char *json_string = cJSON_PrintUnformatted(json); // output all objects as text
+    Serial.print(json_string);
+    Serial.print(">\n");
+    cJSON_Delete(json); // cleanup
+
+    free(json_string);
 
     /* check all front panel register selection objects for updates */
 
     sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, button_value, value);
 
+    Serial.print(jsonbuf);
     Serial.print("\n");
   };
-};
+}; // end of object
 //
 
 //  outside of objects -- initialize static variables in R_select
