@@ -2,6 +2,8 @@
 //
 //  Reformat in VSCode: shift-option-f
 //  print a file: prx <file> | lpx (lpxx for single sided)
+//  Files stored on github: https://github.com/bdietz2021/h316-panel-firmware/tree/rename
+//  active branch is "rename" - please don't ask why.
 //  Generate docs:  (cd is src) doxygen ../docs/docmake
 //  Generated output: Documents/PlatformIO/Projects/250503-080307-pico/docs/index.html
 //
