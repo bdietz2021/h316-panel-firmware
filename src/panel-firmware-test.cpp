@@ -539,7 +539,7 @@ public:
     Serial.print("TOGGLE MODE"); // printable name
     Serial.print(" ");
     Serial.print(name); // printable name
-    Serial.print(" ");
+    Serial.print("\n");
     // if ((button_value & 2) == 0)
     //   step_cmd(); // change demo mode
    // json_send();
@@ -1452,6 +1452,7 @@ void save_register()
 
 void clear_register()
 { // zero out register
+  R_select::selected_reg->value = 0;
   fp_dreg->D_reg_write_word(0x0);
   D_io_base->W_wordf();
 }
