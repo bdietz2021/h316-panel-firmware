@@ -942,9 +942,10 @@ int D_reg::R_bit(int bitno)
   temp = (1 << size); // starting point 10000 hex for 16 bit size
   temp = temp >> (bitno + 1);
   value |= temp; // update value
-  change_flag++;  // set change flag to send json
+  R_change_flag++;  // set change flag to send json
 
-  // W_bit(D_reg_bitno,1); // update bit to be output
+  R_select::selected_reg->value = this->value;  // update register object with selected value
+  W_bit(D_reg_bitno,1); // update bit to be output
 
   return (size - bitno); // return bit mask in the byte
 }
