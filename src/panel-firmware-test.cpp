@@ -5,7 +5,7 @@
 //  Files stored on github: https://github.com/bdietz2021/h316-panel-firmware/tree/rename
 //  active branch is "rename" - please don't ask why.
 //  Generate docs:  (cd is src) doxygen ../docs/docmake
-//  Generated output: Documents/PlatformIO/Projects/250503-080307-pico/docs/index.html
+//  Generated output: Documents/PlatformIO/Projects/250503-080307-pico/docs/html/index.html
 //
 //  2/14/2025 1;30 pm byte object function works
 //  add bit object 2:40 function works
@@ -62,6 +62,7 @@
 //  07/21/2026 - revise button code "Button:", "Start"
 //  07/25/2026 - change SI to single message vs two
 //  08/01/2026 - add feature to send register changes to simh
+//  09/22/2026 - add "modified" bit to start register 
 //
 /****** for H316 front panel board 3/2024. ******/
 //  sixteen register bit top row
@@ -111,23 +112,27 @@ static int rev4[16] = {0x00, 0x08, 0x04, 0x0c, 0x02, 0x0a, 0x06, 0x0e,
 class D_byte;
 class D_bit;
 class D_base;
+class D_toggle;
 class D_reg;
 class R_select;
 int step_cmd(); //
 D_reg *fp_dreg; // define this early
 
+
   /** Variables visible to GDB - Global Scope   */
 static D_base *fp_clear;  // clear button object
+static D_toggle *fp_start;  // start button object
 static D_base *fp_ss1;    // ss1 switch
 static D_base *fp_ss2;    // ss2 switch
 static D_base *fp_ss3;    // ss3 switch
 static D_base *fp_ss4;    // ss4 switch
-static R_select *fp_rsel_last;   // last register select switch
+// static R_select *fp_rsel_last;   // last register select switch
 static R_select *fp_rsel_A; // register select A object D_base
 static R_select *fp_rsel_B;
 static R_select *fp_rsel_OP;
 static R_select *fp_rsel_PY;
 static R_select *fp_rsel_M;
+// static D_bit *fp_start_bit;
 
 void clear_register();
 
@@ -437,9 +442,11 @@ public:
   int R_changes() { return(R_change_flag); }
   int R_value() { return(value); }
 
-  int display_current()
+  int display_current(int STwork)
   { // set this register to be displayed
+
     fp_dreg->D_reg_write_word(selected_reg->value);
+    // fp_start->R_bit_on(); // turn on LED BJD TEMP
     return 0;
   };
 
@@ -483,7 +490,7 @@ public:
   //
   //  select this register and display on front panel
   //
-  virtual void R_bit_on()
+  virtual void R_bit_on() 
   {
     int i;
     // Serial.println("R_select::R_bit_on");
@@ -545,6 +552,9 @@ public:
    // json_send();
     return (0);
   }
+  /** @brief R_bit_on sends possibly updated register to software
+   * 
+   */
   void R_bit_on()
   {
     Serial.println("D_toggle::R_bit_on");
@@ -553,6 +563,9 @@ public:
 
     json_send(); // changed 7/9/2026 
   }
+   /** @brief R_bit_off sends possibly updated register to software
+   * 
+   */
   void R_bit_off()
   {
     Serial.println("D_toggle::R_bit_off");
@@ -560,6 +573,17 @@ public:
     json_send();
   }
 
+  /** @brief R_update_LED turns LED on or off
+   * 
+   */
+  void R_update_LED(int flag)
+  {
+    parent->W_bit(0,flag);  // call on/off of underlying D_bit object
+  }
+  //
+  /** @brief json_send formats a json message contining register values and sends 
+   * it to the program FrontPanelH316.c running on the "big" Raspberry Pi 3
+   */
   virtual void json_send() override
   {
     int i;
@@ -617,12 +641,13 @@ public:
 
     /* check all front panel register selection objects for updates */
 
-    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, button_value, value);
+    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, R_change_flag, value);
 
     Serial.print(jsonbuf);
     Serial.print("\n");
   };
 }; // end of object
+
 //
 
 //  outside of objects -- initialize static variables in R_select
@@ -631,6 +656,7 @@ int R_select::reg_max = 0;               // initialize
 R_select *R_select::reg_select[6];       // /** pointers to all selectable registers */
 R_select *r_sel_ptr;                     // debug
 R_select *R_select::selected_reg = NULL; // initialize
+
 
 //
 /** @brief class usbio provides control input from the host computer via the USB
@@ -1115,6 +1141,7 @@ char *usbio::in_string()
 void process_json()
 {
   int temp;
+  int ST;
   char *inputx = usbio2.in_string();
   temp = status_reg(inputx, (char *)"A");
   if (temp >= 0)
@@ -1148,7 +1175,17 @@ void process_json()
     fp_rsel_M->value = temp; //
   };
   R_select *tempptr = (R_select *)fp_rsel_A;
-  tempptr->display_current(); // update front panel reg
+    //
+  temp = status_reg(inputx, (char *)"Status");
+  if (temp >= 0)
+  {
+    // fp_rsel_PY->value = temp; //
+//    ST = temp;  // set Status variable
+  (temp == 0) ? ST = 1  :ST = 0;  // first use of ternary conditional operator
+    fp_start->R_update_LED(ST);
+  };
+  //
+  // tempptr->display_current(ST); // update front panel reg
 };
 
 /** @brief: process json command to set A register
@@ -1210,7 +1247,7 @@ int display_value = 0;
 /** brief: setup routine is called once by mbed os at startup
  * Must contain all initialization code.
  */
-void setup()
+void setup()  // one time code
 {
   // put your setup code here, to run once:
 
@@ -1333,12 +1370,16 @@ void setup()
   dbyte_save = D_io_base->make(&xwire1, 0x26, 0); // i2c addr of i/o expander chip
   dbit_save = dbyte_save->mbit(dbyte_save, 0x01);
   fp_clear = dbit_save->D_reg_link = new D_demo(dbit_save, (char *)"MA"); // set MA mode
+
   dbit_save = dbyte_save->mbit(dbyte_save, 0x02);
   fp_clear = dbit_save->D_reg_link = new D_demo(dbit_save, (char *)"SI"); // set SI mode
+
   dbit_save = dbyte_save->mbit(dbyte_save, 0x04);
   fp_clear = dbit_save->D_reg_link = new D_demo(dbit_save, (char *)"RUN");  // set RUN mode
   dbit_save = dbyte_save->mbit(dbyte_save, 0x08);
-  fp_clear = dbit_save->D_reg_link = new D_toggle(dbit_save, (char *)"Start"); // do MA or SI or RUN
+ // fp_clear = dbit_save->D_reg_link = new D_toggle(dbit_save, (char *)"Start"); // do MA or SI or RUN
+  fp_start = new D_toggle(dbit_save, (char *)"Start"); // do MA or SI or RUN
+    fp_clear = dbit_save->D_reg_link = fp_start;
   //      (on SDA, SCL = ,5)
 
   fp_dreg->D_reg_end_bits(); // update bit number after last bit added
