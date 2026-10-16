@@ -221,6 +221,22 @@ public:
 
   virtual int R_bit(int);
   int R_changed_bit(int data); // process a changed bit
+
+    /** @brief - R_set_bit(int) calls D_bit to set LED on/off
+   *
+   */
+  virtual int R_set_bit(int flag)
+  {
+    if (flag == 0)
+    {
+      W_bit(0, 0);
+    }
+    else
+    {
+      W_bit(0, 1);
+    }
+  }
+
 };
 
 /** @brief D_base base class for front panel registers and buttons */
@@ -266,6 +282,8 @@ public:
   //   Serial.print("D_base::BN_changed_bit: ");
     return (0);
   }
+    //
+
 };
 
 //  class D_button - base class for all single button input
@@ -285,8 +303,8 @@ public:
   virtual int BN_changed_bit(int j)
   {
     if (j == 0)
-    { // process Switch ON events only (ignore OFF)
-      if (button_value == 0)    // alternates between turn on and turn off
+    {                        // process Switch ON events only (ignore OFF)
+      if (button_value == 0) // alternates between turn on and turn off
       {
         // LED was OFF, turn it on
         // Serial.println("ON");
@@ -300,7 +318,7 @@ public:
         // LED was ON, turn it off
         // Serial.println("OFF");
         button_value = 0; // set switch statte to OFF
-       //  Serial.print("D_button BN_changed_bit \n");
+                          //  Serial.print("D_button BN_changed_bit \n");
         parent->W_bit(0, 1);
         R_bit_off();
       }
@@ -541,7 +559,22 @@ public:
     button_value = 0; // clear/set off
   }
 
-virtual int BN_changed_bit(int j) {}; // dummy to override "toggle" action of D_button
+  virtual int BN_changed_bit(int j)
+  { // debug D_action
+    static int dummy;
+    dummy = 1;
+    global_test_flag++;
+    if (j == 0)
+    {                          // process Switch ON events only (ignore OFF)
+                               // parent->R_set_bit(dummy); // debug kluge
+                               // parent->W_bit(0);  // test
+      parent->W_bit(0, dummy); // call on/off of underlying D_bit object
+      R_bit_on();              //
+    }
+    return (0);
+  };
+
+// dummy to override "toggle" action of D_button
 
   /** @brief dummy R_bit for D_action -- do nothing
    * 
@@ -557,8 +590,6 @@ virtual int BN_changed_bit(int j) {}; // dummy to override "toggle" action of D_
   {
     Serial.println("D_action::R_bit_on");
     //step_cmd(); // change demo mode
-   // R_select::send_registers_json();
-
     json_send(); // changed 7/9/2026 
   }
    /** @brief R_bit_off sends possibly updated register to software
@@ -777,8 +808,8 @@ void D_byte::W_bytef()
   unsigned long time_now;
   unsigned int debounce = 100; // minimum milliseconds between reads
   if (debug_flag) {
-    Serial.print("W_bytef: ");
-    Serial.println(data_out, HEX);
+    // Serial.print("W_bytef: ");
+    // Serial.println(data_out, HEX);
     global_test_flag++;
   }
   if (1) // (change_flag != 0)
@@ -912,7 +943,7 @@ void D_byte::W_bytef()
           // D_bits[i]->D_reg_bitno;  // this bit was changed  NOOP
           D_bits[i]->R_bit(changed_in); // BJD DEBUG
           //     D_bits[i]->W_bit(i, 1);       // Write output bit via byte (old code)
-          D_bits[i]->W_bit(i, (data_in & (D_bits[i]->mask))); // Write output bit via byte
+         // D_bits[i]->W_bit(i, (data_in & (D_bits[i]->mask))); // Write output bit via byte
 
           D_bits[i]->R_changed_bit(0); // update registers/buttons using this bit BJD
 
