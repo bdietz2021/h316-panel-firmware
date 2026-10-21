@@ -499,6 +499,7 @@ public:
       button_value = 1; // set switch state to ON
      Serial.print("R_select::BN_changed_bit ON\n");
       // parent->W_bit(0, 0);
+      parent->W_bit(0, 1); // call on/off of underlying D_bit object
       R_bit_on();
       selected_reg = this; // save which register is selected
       Serial.print("R_select: register ");
