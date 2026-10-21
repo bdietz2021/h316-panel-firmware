@@ -64,6 +64,7 @@
 //  08/01/2026 - add feature to send register changes to simh
 //  09/22/2026 - add "modified" bit to start register 
 //  09/30/2026 - start button works, start adding other similar
+//  10/21/2026 - test of github
 //
 /****** for H316 front panel board 3/2024. ******/
 //  sixteen register bit top row
