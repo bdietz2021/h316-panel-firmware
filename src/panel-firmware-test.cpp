@@ -259,10 +259,11 @@ public:
   // virtual int clear();  // reset value
   virtual int R_bit(int);
 /** W_bit for base class D_base
- * This is a virtual function to be redefined in subclasses.
+ * @brief This is a virtual function to be redefined in subclasses.
  */
   virtual int W_bit(int, int) { return (0); };  /** brief: write bit - default action  */
   //
+  /** json_send @brief creats JSON message and send to frontpanelh316 on the RPi 3 */
   virtual void json_send()
   {
     // create JSON message to send to h316 frontpanelh316
@@ -477,8 +478,6 @@ public:
   int parse_json(char *in); // extract register values from json
   char *create_json();      // create json text msg
 
-
-
   /** @brief send_registers_json: - send json messages for any changed registers */
   int send_registers_json(){
     printf("Send Registers Json\n");
@@ -499,9 +498,12 @@ public:
      // Serial.println("ON");
       button_value = 1; // set switch state to ON
      Serial.print("R_select::BN_changed_bit ON\n");
-      // parent->W_bit(0, 0);
+     // 2 lines of sample code from D_byte
+        //     D_bits[i]->W_bit(i, 1);       // Write output bit via byte (old code)
+        // D_bits[i]->W_bit(i, (data_in & (D_bits[i]->mask))); // Write output bit via byte
+      R_bit_on(); // this wipes out the light over register LED
       parent->W_bit(0, 1); // call on/off of underlying D_bit object
-      R_bit_on();
+
       selected_reg = this; // save which register is selected
       Serial.print("R_select: register ");
       Serial.print(name);
@@ -548,7 +550,7 @@ private: // name of this register
 
 /** @brief D_action class was intended to provide an object for front
  * panel buttons that trigger an action in the emulator
- * like "start" "SI" and others. 
+ * like "start", "SI" and others. 
  */
 class D_action : public D_button
 { 
@@ -560,7 +562,10 @@ public:
     name = namex;
     button_value = 0; // clear/set off
   }
-
+/**  @brief brief BN_changed_bit in D_action is intended to turn on the LED when the
+ * corresponding button is pressed. D_action is used for "start" and similar buttons.  
+ *  
+*/
   virtual int BN_changed_bit(int j)
   { // debug D_action
     static int dummy;
@@ -605,7 +610,7 @@ public:
   }
 
   /** @brief R_update_LED turns LED on or off
-   * This is used when a json message is received with a new value for the LEDs.
+   * This is used when a json message is received (from the RPi 3 running the simh H316 simulator) with a new value for the LEDs.
    */
   void R_update_LED(int flag)
   {
