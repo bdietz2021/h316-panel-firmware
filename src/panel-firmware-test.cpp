@@ -65,6 +65,7 @@
 //  09/22/2026 - add "modified" bit to start register 
 //  09/30/2026 - start button works, start adding other similar
 //  10/21/2026 - test of github
+//  11/11/2026 - revise MA/SI/RUN into radio buttons
 //
 /****** for H316 front panel board 3/2024. ******/
 //  sixteen register bit top row
@@ -117,6 +118,7 @@ class D_base;
 class D_action;
 class D_reg;
 class R_select;
+class S_select;
 int step_cmd(); //
 D_reg *fp_dreg; // define this early
 
@@ -124,9 +126,9 @@ D_reg *fp_dreg; // define this early
   /** Variables visible to GDB - Global Scope   */
 static D_base *fp_clear;  // clear button object
 static D_action *fp_start;  // start button object
-static D_action *fp_run;
-static D_action *fp_si;
-static D_action *fp_ma;
+static S_select *fp_run;  // selects RUN when START is pushed
+static S_select *fp_si;
+static S_select *fp_ma;
 static D_base *fp_ss1;    // ss1 switch
 static D_base *fp_ss2;    // ss2 switch
 static D_base *fp_ss3;    // ss3 switch
@@ -137,6 +139,7 @@ static R_select *fp_rsel_B;
 static R_select *fp_rsel_OP;
 static R_select *fp_rsel_PY;
 static R_select *fp_rsel_M;
+
 // static D_bit *fp_start_bit;
 //
 static int global_test_flag; // dummy variable
@@ -425,7 +428,8 @@ public:
 
     void R_bit_on()
   {
-    Serial.println("D_demo::R_bit_on");
+    Serial.print("D_demo::R_bit_on ");
+    Serial.println(name);
     json_send(); // changed 7/25/2026 
   }
   void R_bit_off()
@@ -443,6 +447,9 @@ public:
  */
 class R_select : public D_button
 {
+private:
+  R_select() {selected_reg = NULL; R_select::reg_max = 0;}; // initialize statics
+
 public:
   static R_select *reg_select[6]; // pointer to select buttons
   static int reg_max;             // number of registers
@@ -450,7 +457,6 @@ public:
                                   // int value;                  value is defined in D_base
   char *name;                     // register name for json
 
-  R_select() {selected_reg = NULL; R_select::reg_max = 0;}; // initialize statics
   R_select(D_bit *bin, char *in)
   {
     // this constructor adds this object to the static table of
@@ -543,10 +549,7 @@ public:
     return (0);
   }
 
-private: // name of this register
 };
-
-// yy
 
 /** @brief D_action class was intended to provide an object for front
  * panel buttons that trigger an action in the emulator
@@ -579,6 +582,20 @@ public:
       R_bit_on();              //
     }
     return (0);
+  };
+
+  //
+
+  int button_option; // for MA/SI/RUN option
+  /** @brief routine to set button_option for START button */
+  void set_button_option(int newvalue)
+  {
+    button_option = newvalue;
+  };
+ /** @brief routine to get button_option for START button */
+  int get_button_option()
+  {
+    return (button_option);
   };
 
 // dummy to override "toggle" action of D_button
@@ -675,14 +692,122 @@ public:
 
     free(json_string);
 
-    /* check all front panel register selection objects for updates */
-
-    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, R_change_flag, value);
+    /* Send which button was pushed */
+    i = fp_start->get_button_option();
+    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, i, value);
 
     Serial.print(jsonbuf);
     Serial.print("\n");
   };
 }; // end of object
+
+
+/** @brief S_select -- each instance of class S_select defines one Start MODE button
+ * (MA, SI, RUN)
+ * These three buttons replace a 3-position selector switch on
+ * the original H316 front panel.  Pushing MI, SI, or RUN sets a state
+ * that defines what happens when the START button is pushed. 
+ * 
+ */
+class S_select : public D_button
+{
+private:
+  S_select() {start_mode = 0; S_select::reg_max = 0;start_mode = 0;}; // initialize statics
+  int start_option; // MA/SI/RUN option
+
+public:
+  static S_select *reg_select[6]; // pointer to select buttons
+  static int reg_max;             // number of registers
+  static int start_mode;          // state: what happens when START is pushed
+  // start_mode = 0 RUN -> start execution
+  //  start_mode = 1 MA -> access memory
+  //  start_mode = 2 SI -> single instruction
+  char *name;                     // register name for json
+
+  S_select(D_bit *bin, char *in, int option)
+  {
+    // this constructor adds this object to the static table of
+    // S_select objects.
+    Serial.println("S_select constructor");
+    parent = bin;                 // save parent D_bit object
+    reg_select[reg_max++] = this; // save pointer to this object
+    value = 0;                    // set register value to 0
+    D_reg_bitno = 0;              //
+    name = in;                    // strcpy(in,name);  // save name
+    start_option = option;  
+  };
+
+  int R_changes() { return(R_change_flag); }
+  int R_value() { return(value); }
+  
+  int S_state() { return(start_mode); }
+
+  /** @brief send_registers_json: - send json messages for any changed registers */
+  int send_registers_json(){
+    printf("Send Registers Json\n");
+    int i;
+    for (i=0;i<reg_max;i++)
+    {
+      printf("%s\n",reg_select[i]->name);
+    }
+    return(0);
+  }
+  /** @brief - BN_changed_bit exists in  D_button, R_select, S_select and D_base. Beware.  */
+  virtual int BN_changed_bit(int j) // this is the S_select version
+  {
+    if (j == 0)
+    { // process Switch ON events only (ignore OFF)
+
+      // LED was OFF, turn it on
+     // Serial.println("ON");
+      button_value = 1; // set switch state to ON
+     Serial.print("S_select::BN_changed_bit ON\n");
+     // 2 lines of sample code from D_byte
+        //     D_bits[i]->W_bit(i, 1);       // Write output bit via byte (old code)
+        // D_bits[i]->W_bit(i, (data_in & (D_bits[i]->mask))); // Write output bit via byte
+      R_bit_on(); // this wipes out the light over register LED
+      parent->W_bit(0, 1); // call on/off of underlying D_bit object
+
+      Serial.print("S_select: register ");
+      Serial.print(name);
+      Serial.println(" selected");
+      Serial.println(value);
+    }
+    return (0);
+  }
+
+  //
+  //  select this register and display on front panel
+  //
+  virtual void R_bit_on() 
+  {
+    int i;
+    // Serial.println("S_select::R_bit_on");
+    fp_dreg->D_reg_write_word(value); // set value
+    for (i = 0; i < reg_max; i++)
+    {
+      reg_select[i]->parent->W_bit(0, 0); // turn all S_select light off
+    };
+    parent->W_bit(0, 0); // turn selected register on
+
+    fp_start->set_button_option(start_option); // set value MA/SI/RUN flag
+  };
+  virtual void R_bit_off()
+  {
+  };
+  //
+  //
+  int R_bit(int in)
+  {
+    // Serial.print("S_select::R_bit ");
+    // // // button_value++;            // set light on
+    // // Serial.print("DEMO MODE"); // printable name
+    // // Serial.print(" ");
+    // Serial.println(name); // printable name
+    return (0);
+  }
+
+};
 
 //
 
@@ -692,6 +817,9 @@ int R_select::reg_max = 0;               // initialize
 R_select *R_select::reg_select[6];       // /** pointers to all selectable registers */
 R_select *r_sel_ptr;                     // debug
 R_select *R_select::selected_reg = NULL; // initialize
+S_select *S_select::reg_select[6];      // pointers to MA/SI/RUN
+int S_select::reg_max = 0; 
+int S_select::start_mode = 0;           // default action for START button
 
 
 //
@@ -1010,9 +1138,7 @@ void D_byte::W_bytef()
   { // set/reset bit in i/o expander sw object
 
     Serial.print("D_button::R_bit: ");
-    Serial.print((long unsigned int)this, HEX);
-    Serial.print(" ");
-    Serial.println(in, HEX);
+    Serial.println(name);
     return (0); // return bit mask in the byte
   }
 
@@ -1215,9 +1341,9 @@ void D_byte::W_bytef()
     status_bits = temp; // value from frontpanelh316 
     
     fp_start->R_update_LED(status_bits & 1);
-    fp_run->R_update_LED(status_bits & 2);
-    fp_si->R_update_LED(status_bits & 4);
-    fp_ma->R_update_LED(status_bits & 8);
+    // fp_run->R_update_LED(status_bits & 2);
+    // fp_si->R_update_LED(status_bits & 4);
+    // fp_ma->R_update_LED(status_bits & 8);
   };
   //
   // tempptr->display_current(ST); // update front panel reg
@@ -1282,9 +1408,12 @@ int display_value = 0;
 /** brief: setup routine is called once by mbed os at startup
  * Must contain all initialization code.
  */
-void setup()  // one time code
+void setup()  // one time code executed when he firmware is initialized
 {
   // put your setup code here, to run once:
+  // set up variables and objects like buttons and LEDs
+  // I'm trying to use c++ objects as much as possible --
+  // this is a learning opportunity and may not be optimal. 
 
   // initialize digital pin LED_BUILTIN as an output.
 
@@ -1297,7 +1426,7 @@ void setup()  // one time code
   {
     while (Serial.available() <= 0)
       delay((unsigned long)10);
-    Serial.println("\nPanel Test 06/20/2026 - enter anything");
+    Serial.println("\npanel-firmware-test.cpp 11/11/2026 - enter anything");
     Serial.read();
   }
 
@@ -1403,21 +1532,22 @@ void setup()  // one time code
   dbit_save = dbyte_save->mbit(dbyte_save, 0x08);
   fp_clear = dbit_save->D_reg_link = new D_demo(dbit_save, (char *)"P+1");
 
-  //  define MA/Run/ Start ..
+  //  define MA/SI/Run - these emulate a 3 position selector switch
   dbyte_save = D_io_base->make(&xwire1, 0x26, 0x26); // i2c addr of i/o expander chip
 
   dbit_save = dbyte_save->mbit(dbyte_save, 0x01);
-  fp_ma = new D_action(dbit_save, (char *)"MA"); // 
+  fp_ma = new S_select(dbit_save, (char *)"MA",1); // 
   fp_clear = dbit_save->D_reg_link = fp_ma;
 
   dbit_save = dbyte_save->mbit(dbyte_save, 0x02);
-  fp_si = new D_action(dbit_save, (char *)"SI"); // 
+  fp_si = new S_select(dbit_save, (char *)"SI",2); // 
   fp_clear = dbit_save->D_reg_link = fp_si;
 
   dbit_save = dbyte_save->mbit(dbyte_save, 0x04);
-  fp_run = new D_action(dbit_save, (char *)"RUN"); // 
+  fp_run = new S_select(dbit_save, (char *)"RUN",0); // 
   fp_clear = dbit_save->D_reg_link = fp_run;
 
+  // define "START" 
   dbit_save = dbyte_save->mbit(dbyte_save, 0x08);
   fp_start = new D_action(dbit_save, (char *)"Start"); // do MA or SI or RUN
   fp_clear = dbit_save->D_reg_link = fp_start;
