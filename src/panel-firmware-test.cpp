@@ -660,6 +660,8 @@ public:
     int wint = 13; // dummy register value
     int wint1 = 14;
     int wint2 = 15;
+    int button_option2;  // MA/SI/RUN status
+
 
     cJSON *json = cJSON_CreateObject();                // empty top-level object
     array = cJSON_AddArrayToObject(json, "Registers"); // add array of register values
@@ -684,20 +686,37 @@ public:
       fp_rsel_A->reg_select[i]->R_change_flag = 0;
     };
     // finish the json message, send it, and free memory
-    Serial.print("<");
-    char *json_string = cJSON_PrintUnformatted(json); // output all objects as text
-    Serial.print(json_string);
-    Serial.print(">\n");
+    // Serial.print("<");
+    // char *json_string = cJSON_PrintUnformatted(json); // output all objects as text
+    // Serial.print(json_string);
+    // Serial.print(">\n");
     cJSON_Delete(json); // cleanup
 
-    free(json_string);
+    // cJSON_free(json_string);
 
     /* Send which button was pushed */
     i = fp_start->get_button_option();
-    sprintf(jsonbuf, "<{\"Button\": {\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}} >", name, i, value);
+    // sprintf(jsonbuf, "<{\"Button\": [{\"Name\": \"%s\", \"State\": %d, \"Value\": %ld}]} >", name, i, value);
+    //
+    // create json message for button pushed
+    //
+    cJSON *jsonx = cJSON_CreateObject();                // empty top-level object
 
-    Serial.print(jsonbuf);
-    Serial.print("\n");
+    button_option2 = fp_start->get_button_option(); 
+
+    ptr = cJSON_AddStringToObject(jsonx, "Button", "Start"); // report button press
+    cJSON_AddNumberToObject(jsonx, "State", button_option2);
+    cJSON_AddNumberToObject(jsonx, "Value", 000000);
+
+
+    // finish the json message, send it, and free memory
+    Serial.print("<");
+    char *json_stringx = cJSON_PrintUnformatted(jsonx); // output all objects as text
+    Serial.print(json_stringx);
+    Serial.print(">\n");
+    cJSON_Delete(jsonx); // cleanup
+
+    cJSON_free(json_stringx);
   };
 }; // end of object
 
